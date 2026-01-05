@@ -130,9 +130,9 @@ async def get_strategy_run(
     current_user: User = Depends(get_current_user),
 ):
     """Get strategy run by ID."""
-    strategy_run = db.query(StrategyRun).filter(
+    strategy_run = db.query(StrategyRun).join(Strategy).filter(
         StrategyRun.id == run_id,
-        StrategyRun.strategy.has(tenant_id=current_user.tenant_id),
+        Strategy.tenant_id == current_user.tenant_id,
     ).first()
     if not strategy_run:
         raise HTTPException(
@@ -149,9 +149,9 @@ async def stop_strategy_run(
     current_user: User = Depends(get_current_user),
 ):
     """Stop a running strategy."""
-    strategy_run = db.query(StrategyRun).filter(
+    strategy_run = db.query(StrategyRun).join(Strategy).filter(
         StrategyRun.id == run_id,
-        StrategyRun.strategy.has(tenant_id=current_user.tenant_id),
+        Strategy.tenant_id == current_user.tenant_id,
     ).first()
     if not strategy_run:
         raise HTTPException(
@@ -171,8 +171,8 @@ async def list_strategy_runs(
     current_user: User = Depends(get_current_user),
 ):
     """List strategy runs for current tenant."""
-    query = db.query(StrategyRun).filter(
-        StrategyRun.strategy.has(tenant_id=current_user.tenant_id)
+    query = db.query(StrategyRun).join(Strategy).filter(
+        Strategy.tenant_id == current_user.tenant_id
     )
     
     if strategy_id:

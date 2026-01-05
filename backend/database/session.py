@@ -11,16 +11,27 @@ from database.models import Base
 from config import settings
 
 
-# Database URL from config
-DATABASE_URL = settings.database_url
+# Database URL from config (default to SQLite if not set)
+DATABASE_URL = getattr(settings, 'database_url', None) or "sqlite:///./map.db"
 
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
-    echo=False,  # Set to True for SQL debugging
-)
+# SQLite and DuckDB don't use connection pooling like PostgreSQL
+# For file-based databases, create engine without pool settings
+if DATABASE_URL.startswith(("sqlite", "duckdb")):
+    connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+    engine = create_engine(
+        DATABASE_URL,
+        echo=False,  # Set to True for SQL debugging
+        connect_args=connect_args,
+    )
+else:
+    # PostgreSQL settings
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+        echo=False,
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

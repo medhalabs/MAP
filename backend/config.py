@@ -11,8 +11,8 @@ from typing import Optional
 class Settings(BaseSettings):
     """Application settings."""
     
-    # Database
-    database_url: str = "postgresql://map_user:map_password@localhost:5432/map_db"
+    # Database (SQLite for development, PostgreSQL for production)
+    database_url: str = "sqlite:///./map.db"
     
     # JWT
     secret_key: str = "your-secret-key-change-in-production"

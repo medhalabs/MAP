@@ -27,8 +27,7 @@ class ConnectionManager:
         self.active_connections: Dict[int, Set[WebSocket]] = {}
     
     async def connect(self, websocket: WebSocket, user_id: int):
-        """Connect a WebSocket for a user."""
-        await websocket.accept()
+        """Connect a WebSocket for a user (connection already accepted)."""
         if user_id not in self.active_connections:
             self.active_connections[user_id] = set()
         self.active_connections[user_id].add(websocket)
@@ -84,18 +83,49 @@ async def websocket_endpoint(
     # Validate token and get user_id
     from jose import jwt
     from config import settings
+    from database.session import get_db_context
+    from database.models import User
     
+    # Accept WebSocket connection first (required before closing)
+    await websocket.accept()
+    
+    user_id = None
     try:
-        # Decode token
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        # Decode token (disable subject validation to handle both old int and new string subjects)
+        payload = jwt.decode(
+            token, 
+            settings.secret_key, 
+            algorithms=[settings.algorithm],
+            options={"verify_sub": False}
+        )
+        
         user_id = payload.get("sub")
         if not user_id:
             await websocket.close(code=1008, reason="Invalid token")
             return
-    except Exception:
+        
+        # Convert to int (handle both string and int)
+        if isinstance(user_id, str):
+            user_id = int(user_id)
+        
+        # Verify user exists and is active
+        with get_db_context() as db:
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user or not user.is_active:
+                await websocket.close(code=1008, reason="Invalid user")
+                return
+        
+    except jwt.JWTError:
         await websocket.close(code=1008, reason="Invalid token")
         return
+    except (ValueError, TypeError):
+        await websocket.close(code=1008, reason="Invalid user ID")
+        return
+    except Exception:
+        await websocket.close(code=1008, reason="Authentication error")
+        return
     
+    # Connect to manager
     await manager.connect(websocket, user_id)
     
     try:

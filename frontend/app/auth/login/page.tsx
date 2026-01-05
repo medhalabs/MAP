@@ -25,13 +25,14 @@ export default function LoginPage() {
     try {
       const result = await login(formData.username, formData.password)
       if (result.success) {
-        router.push('/dashboard')
+        // Redirect immediately - dashboard will check auth
+        window.location.href = '/dashboard'
       } else {
         setError(result.error || 'Login failed')
+        setLoading(false)
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred')
-    } finally {
       setLoading(false)
     }
   }

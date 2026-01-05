@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from api.routes import auth, tenants, strategies, orders, trades, positions, websocket
+from api.routes import auth, tenants, strategies, orders, trades, positions, websocket, dashboard, broker_accounts, risk
 from database.session import init_db
 from utils.logger import configure_logging
 
@@ -57,6 +57,9 @@ app.include_router(strategies.router, prefix="/api/strategies", tags=["strategie
 app.include_router(orders.router, prefix="/api/orders", tags=["orders"])
 app.include_router(trades.router, prefix="/api/trades", tags=["trades"])
 app.include_router(positions.router, prefix="/api/positions", tags=["positions"])
+app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
+app.include_router(broker_accounts.router, prefix="/api/broker-accounts", tags=["broker-accounts"])
+app.include_router(risk.router, prefix="/api/risk", tags=["risk"])
 app.include_router(websocket.router, prefix="/api/ws", tags=["websocket"])
 
 

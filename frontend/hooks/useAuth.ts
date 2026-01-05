@@ -15,14 +15,24 @@ export function useAuth() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token')
-    if (token) {
-      // TODO: Validate token and fetch user
-      // For now, just check if token exists
-      setIsLoading(false)
-    } else {
+    const loadUser = async () => {
+      const token = localStorage.getItem('access_token')
+      if (token) {
+        try {
+          // Fetch current user from API
+          const response = await apiClient.get('/api/auth/me')
+          setUser(response)
+        } catch (error) {
+          // Token invalid, clear it
+          localStorage.removeItem('access_token')
+          setUser(null)
+        }
+      } else {
+        setUser(null)
+      }
       setIsLoading(false)
     }
+    loadUser()
   }, [])
 
   const login = async (username: string, password: string) => {
@@ -46,9 +56,11 @@ export function useAuth() {
       }
 
       const data = await response.json()
-      const { access_token, user } = data
+      const { access_token, user: userData } = data
       localStorage.setItem('access_token', access_token)
-      setUser(user)
+      // Set user state immediately
+      setUser(userData)
+      setIsLoading(false)
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message || 'Network error' }

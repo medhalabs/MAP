@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from database.session import get_db
-from database.models import User, Order, OrderStatus
+from database.models import User, Order, OrderStatus, BrokerAccount
 from database.schemas import OrderResponse
 from api.dependencies import get_current_user, get_current_tenant
 
@@ -23,8 +23,8 @@ async def list_orders(
     current_user: User = Depends(get_current_user),
 ):
     """List orders for current tenant."""
-    query = db.query(Order).filter(
-        Order.broker_account.has(tenant_id=current_user.tenant_id)
+    query = db.query(Order).join(BrokerAccount).filter(
+        BrokerAccount.tenant_id == current_user.tenant_id
     )
     
     if strategy_run_id:
@@ -44,6 +44,18 @@ async def get_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Get order by ID."""
+    order = db.query(Order).join(BrokerAccount).filter(
+        Order.id == order_id,
+        BrokerAccount.tenant_id == current_user.tenant_id,
+    ).first()
+    if not order:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+    return order
     """Get order by ID."""
     order = db.query(Order).filter(
         Order.id == order_id,

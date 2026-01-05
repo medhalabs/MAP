@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from database.session import get_db
-from database.models import User, Trade
+from database.models import User, Trade, StrategyRun, Strategy
 from database.schemas import TradeResponse
 from api.dependencies import get_current_user, get_current_tenant
 
@@ -23,8 +23,8 @@ async def list_trades(
     current_user: User = Depends(get_current_user),
 ):
     """List trades for current tenant."""
-    query = db.query(Trade).filter(
-        Trade.strategy_run.has(strategy__tenant_id=current_user.tenant_id)
+    query = db.query(Trade).join(StrategyRun).join(Strategy).filter(
+        Strategy.tenant_id == current_user.tenant_id
     )
     
     if strategy_run_id:
@@ -44,6 +44,17 @@ async def get_trade(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Get trade by ID."""
+    trade = db.query(Trade).join(StrategyRun).join(Strategy).filter(
+        Trade.id == trade_id,
+        Strategy.tenant_id == current_user.tenant_id,
+    ).first()
+    if not trade:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trade not found",
+        )
+    return trade
     """Get trade by ID."""
     trade = db.query(Trade).filter(
         Trade.id == trade_id,

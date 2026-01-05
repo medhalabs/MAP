@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from database.session import get_db
-from database.models import User, Position
+from database.models import User, Position, BrokerAccount
 from database.schemas import PositionResponse
 from api.dependencies import get_current_user, get_current_tenant
 
@@ -21,8 +21,8 @@ async def list_positions(
     current_user: User = Depends(get_current_user),
 ):
     """List positions for current tenant."""
-    query = db.query(Position).filter(
-        Position.broker_account.has(tenant_id=current_user.tenant_id),
+    query = db.query(Position).join(BrokerAccount).filter(
+        BrokerAccount.tenant_id == current_user.tenant_id,
         Position.quantity != 0,  # Only non-zero positions
     )
     
@@ -39,6 +39,17 @@ async def get_position(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Get position by ID."""
+    position = db.query(Position).join(BrokerAccount).filter(
+        Position.id == position_id,
+        BrokerAccount.tenant_id == current_user.tenant_id,
+    ).first()
+    if not position:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Position not found",
+        )
+    return position
     """Get position by ID."""
     position = db.query(Position).filter(
         Position.id == position_id,

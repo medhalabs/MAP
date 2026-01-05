@@ -5,79 +5,105 @@ Authentication routes.
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
-from datetime import timedelta
 
 from database.session import get_db
-from database.models import User, Tenant
-from database.schemas import UserCreate, UserResponse, TenantCreate, TenantResponse
-from api.dependencies import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from database.models import User
+from database.schemas import UserResponse, UserCreate
+from api.dependencies import get_current_user, create_access_token
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password against hash."""
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    """Hash password."""
-    return pwd_context.hash(password)
-
-
-@router.post("/register", response_model=UserResponse)
-async def register(user_data: UserCreate, db: Session = Depends(get_db)):
-    """Register a new user with tenant."""
-    # Determine tenant
-    tenant_id = user_data.tenant_id
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def register(
+    user_data: UserCreate,
+    db: Session = Depends(get_db),
+):
+    """Register a new user."""
+    from passlib.context import CryptContext
+    from datetime import datetime
+    from database.models import Tenant
     
-    if user_data.tenant_slug:
-        # Join existing tenant by slug
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    
+    # Check if user wants to join existing tenant or create new one
+    tenant = None
+    if user_data.tenant_id:
+        tenant = db.query(Tenant).filter(Tenant.id == user_data.tenant_id).first()
+        if not tenant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tenant not found",
+            )
+    elif user_data.tenant_slug:
         tenant = db.query(Tenant).filter(Tenant.slug == user_data.tenant_slug).first()
         if not tenant:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Tenant not found",
             )
-        if not tenant.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Tenant is inactive",
-            )
-        tenant_id = tenant.id
-    elif not tenant_id:
-        # Create new tenant (first user becomes admin)
+    
+    # If no tenant specified, create a new one
+    if not tenant:
+        from database.models import Tenant
+        import re
+        
+        # Generate slug from username
+        base_slug = re.sub(r'[^a-z0-9]+', '-', user_data.username.lower()).strip('-')
+        slug = base_slug
+        counter = 1
+        
+        # Ensure unique slug
+        while db.query(Tenant).filter(Tenant.slug == slug).first():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        
         tenant = Tenant(
-            name=f"{user_data.username}'s Organization",
-            slug=user_data.username.lower().replace(" ", "-"),
+            name=user_data.username,
+            slug=slug,
+            is_active=True,
             subscription_tier="free",
+            max_users=10,
+            max_strategies=5,
         )
         db.add(tenant)
-        db.flush()
-        tenant_id = tenant.id
+        db.flush()  # Get tenant ID without committing
+        
+        # First user becomes admin
+        is_tenant_admin = True
+    else:
+        is_tenant_admin = False
     
-    # Check if user exists within tenant
+    # Check if email/username already exists in this tenant
     existing_user = db.query(User).filter(
-        User.tenant_id == tenant_id,
-        (User.email == user_data.email) | (User.username == user_data.username)
+        User.email == user_data.email,
+        User.tenant_id == tenant.id,
     ).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email or username already registered in this organization",
+            detail="Email already registered in this organization",
         )
     
-    # Create user (first user in tenant becomes admin)
-    is_first_user = db.query(User).filter(User.tenant_id == tenant_id).count() == 0
+    existing_username = db.query(User).filter(
+        User.username == user_data.username,
+        User.tenant_id == tenant.id,
+    ).first()
+    if existing_username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already taken in this organization",
+        )
     
+    # Create user
+    hashed_password = pwd_context.hash(user_data.password)
     user = User(
-        tenant_id=tenant_id,
         email=user_data.email,
         username=user_data.username,
-        hashed_password=get_password_hash(user_data.password),
-        is_tenant_admin=is_first_user,
+        hashed_password=hashed_password,
+        tenant_id=tenant.id,
+        is_active=True,
+        is_tenant_admin=is_tenant_admin,
     )
     db.add(user)
     db.commit()
@@ -92,9 +118,13 @@ async def login(
     db: Session = Depends(get_db),
 ):
     """Login and get access token."""
-    user = db.query(User).filter(User.username == form_data.username).first()
+    from passlib.context import CryptContext
     
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    
+    # Find user by username
+    user = db.query(User).filter(User.username == form_data.username).first()
+    if not user or not pwd_context.verify(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -107,15 +137,24 @@ async def login(
             detail="User account is inactive",
         )
     
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.id},
-        expires_delta=access_token_expires,
-    )
+    # Create access token
+    access_token = create_access_token(data={"sub": str(user.id)})
     
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": UserResponse.from_orm(user),
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "is_active": user.is_active,
+        },
     }
 
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user),
+):
+    """Get current user information."""
+    return current_user
