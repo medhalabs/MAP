@@ -24,6 +24,17 @@ class BrokerOrderRequest:
         quantity: int,
         price: Optional[Decimal] = None,
         trigger_price: Optional[Decimal] = None,
+        client_order_id: Optional[str] = None,
+        disclosed_quantity: Optional[int] = None,
+        after_market_order_flag: Optional[str] = None,
+        amo_time: Optional[str] = None,
+        bo_profit_value: Optional[Decimal] = None,
+        bo_stop_loss_value: Optional[Decimal] = None,
+        drp: Optional[str] = None,
+        validity: Optional[str] = None,
+        tag: Optional[str] = None,
+        algo_id: Optional[str] = None,
+        leg_name: Optional[str] = None,
     ):
         self.symbol = symbol
         self.exchange = exchange
@@ -33,6 +44,17 @@ class BrokerOrderRequest:
         self.quantity = quantity
         self.price = price
         self.trigger_price = trigger_price
+        self.client_order_id = client_order_id
+        self.disclosed_quantity = disclosed_quantity
+        self.after_market_order_flag = after_market_order_flag
+        self.amo_time = amo_time
+        self.bo_profit_value = bo_profit_value
+        self.bo_stop_loss_value = bo_stop_loss_value
+        self.drp = drp
+        self.validity = validity
+        self.tag = tag
+        self.algo_id = algo_id
+        self.leg_name = leg_name
 
 
 class BrokerOrderResponse:
@@ -43,11 +65,13 @@ class BrokerOrderResponse:
         status: str,
         message: Optional[str] = None,
         raw_response: Optional[Dict[str, Any]] = None,
+        client_order_id: Optional[str] = None,
     ):
         self.broker_order_id = broker_order_id
         self.status = status  # "success", "pending", "rejected"
         self.message = message
         self.raw_response = raw_response
+        self.client_order_id = client_order_id
 
 
 class BrokerPosition:
@@ -79,6 +103,26 @@ class BrokerOrderStatus:
         average_price: Optional[Decimal] = None,
         message: Optional[str] = None,
         raw_response: Optional[Dict[str, Any]] = None,
+        client_order_id: Optional[str] = None,
+        symbol: Optional[str] = None,
+        exchange: Optional[str] = None,
+        order_type: Optional[OrderType] = None,
+        product_type: Optional[ProductType] = None,
+        transaction_type: Optional[TransactionType] = None,
+        quantity: Optional[int] = None,
+        price: Optional[Decimal] = None,
+        trigger_price: Optional[Decimal] = None,
+        order_timestamp: Optional[Any] = None,
+        exchange_order_id: Optional[str] = None,
+        exchange_timestamp: Optional[Any] = None,
+        status_message: Optional[str] = None,
+        filled_price: Optional[Decimal] = None,
+        remaining_quantity: Optional[int] = None,
+        order_tag: Optional[str] = None,
+        algo_id: Optional[str] = None,
+        leg_name: Optional[str] = None,
+        message_code: Optional[str] = None,
+        message_description: Optional[str] = None,
     ):
         self.broker_order_id = broker_order_id
         self.status = status
@@ -86,6 +130,26 @@ class BrokerOrderStatus:
         self.average_price = average_price
         self.message = message
         self.raw_response = raw_response
+        self.client_order_id = client_order_id
+        self.symbol = symbol
+        self.exchange = exchange
+        self.order_type = order_type
+        self.product_type = product_type
+        self.transaction_type = transaction_type
+        self.quantity = quantity
+        self.price = price
+        self.trigger_price = trigger_price
+        self.order_timestamp = order_timestamp
+        self.exchange_order_id = exchange_order_id
+        self.exchange_timestamp = exchange_timestamp
+        self.status_message = status_message
+        self.filled_price = filled_price
+        self.remaining_quantity = remaining_quantity
+        self.order_tag = order_tag
+        self.algo_id = algo_id
+        self.leg_name = leg_name
+        self.message_code = message_code
+        self.message_description = message_description
 
 
 class BrokerInterface(ABC):
@@ -97,7 +161,7 @@ class BrokerInterface(ABC):
     """
 
     @abstractmethod
-    def authenticate(self, api_key: str, api_secret: str) -> str:
+    async def authenticate(self, api_key: str, api_secret: str) -> str:
         """
         Authenticate with broker and return access token.
         
@@ -114,7 +178,7 @@ class BrokerInterface(ABC):
         pass
 
     @abstractmethod
-    def place_order(self, order_request: BrokerOrderRequest) -> BrokerOrderResponse:
+    async def place_order(self, order_request: BrokerOrderRequest) -> BrokerOrderResponse:
         """
         Place an order with the broker.
         
@@ -130,7 +194,7 @@ class BrokerInterface(ABC):
         pass
 
     @abstractmethod
-    def cancel_order(self, broker_order_id: str) -> bool:
+    async def cancel_order(self, broker_order_id: str) -> bool:
         """
         Cancel an order.
         
@@ -146,7 +210,7 @@ class BrokerInterface(ABC):
         pass
 
     @abstractmethod
-    def get_order_status(self, broker_order_id: str) -> BrokerOrderStatus:
+    async def get_order_status(self, broker_order_id: str) -> BrokerOrderStatus:
         """
         Get current status of an order.
         
@@ -162,7 +226,7 @@ class BrokerInterface(ABC):
         pass
 
     @abstractmethod
-    def fetch_positions(self) -> List[BrokerPosition]:
+    async def fetch_positions(self) -> List[BrokerPosition]:
         """
         Fetch all current positions.
         
@@ -175,7 +239,7 @@ class BrokerInterface(ABC):
         pass
 
     @abstractmethod
-    def fetch_orders(
+    async def fetch_orders(
         self,
         status: Optional[str] = None,
         symbol: Optional[str] = None,
@@ -196,7 +260,7 @@ class BrokerInterface(ABC):
         pass
 
     @abstractmethod
-    def get_account_balance(self) -> Dict[str, Any]:
+    async def get_account_balance(self) -> Dict[str, Any]:
         """
         Get account balance and margin details.
         

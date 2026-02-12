@@ -204,7 +204,7 @@ class StrategyRun(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     strategy_id = Column(Integer, ForeignKey("strategies.id", ondelete="CASCADE"), nullable=False, index=True)
-    broker_account_id = Column(Integer, ForeignKey("broker_accounts.id", ondelete="RESTRICT"), nullable=False, index=True)
+    broker_account_id = Column(Integer, ForeignKey("broker_accounts.id", ondelete="SET NULL"), nullable=True, index=True)
     trading_mode = Column(SQLEnum(TradingMode), nullable=False, default=TradingMode.PAPER)
     status = Column(SQLEnum(StrategyStatus), nullable=False, default=StrategyStatus.PENDING, index=True)
     config = Column(JSON, nullable=False)  # Strategy-specific configuration

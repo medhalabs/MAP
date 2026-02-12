@@ -2,8 +2,8 @@
 Strategy management routes.
 """
 
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from database.session import get_db
@@ -166,7 +166,7 @@ async def stop_strategy_run(
 
 @router.get("/runs", response_model=List[StrategyRunResponse])
 async def list_strategy_runs(
-    strategy_id: int = None,
+    strategy_id: Optional[int] = Query(default=None, description="Filter by strategy ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -175,7 +175,7 @@ async def list_strategy_runs(
         Strategy.tenant_id == current_user.tenant_id
     )
     
-    if strategy_id:
+    if strategy_id is not None:
         query = query.filter(StrategyRun.strategy_id == strategy_id)
     
     runs = query.order_by(StrategyRun.created_at.desc()).all()

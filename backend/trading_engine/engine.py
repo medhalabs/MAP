@@ -75,10 +75,10 @@ class TradingEngine:
             if strategy_run.status != StrategyStatus.PENDING:
                 raise ValueError(f"Strategy run {strategy_run_id} is not in PENDING status")
             
-            # Load strategy class
-            strategy_class = StrategyRegistry.get(strategy_run.strategy.name)
+            # Load strategy class by strategy_code (not name)
+            strategy_class = StrategyRegistry.get(strategy_run.strategy.strategy_code)
             if not strategy_class:
-                raise ValueError(f"Strategy class not found: {strategy_run.strategy.name}")
+                raise ValueError(f"Strategy class not found: {strategy_run.strategy.strategy_code}. Available strategies: {StrategyRegistry.list_all()}")
             
             # Create strategy instance
             strategy = strategy_class(strategy_run.config)
@@ -153,8 +153,10 @@ class TradingEngine:
                 if not strategy_run:
                     return
                 
-                # Load strategy
-                strategy_class = StrategyRegistry.get(strategy_run.strategy.name)
+                # Load strategy class by strategy_code (not name)
+                strategy_class = StrategyRegistry.get(strategy_run.strategy.strategy_code)
+                if not strategy_class:
+                    raise ValueError(f"Strategy class not found: {strategy_run.strategy.strategy_code}. Available strategies: {StrategyRegistry.list_all()}")
                 strategy = strategy_class(strategy_run.config)
                 
                 # Get broker adapter
@@ -162,7 +164,9 @@ class TradingEngine:
                 broker = create_broker_adapter(
                     broker_name=broker_account.broker_name,
                     api_key=broker_account.api_key,
-                    access_token=broker_account.access_token,
+                    access_token=broker_account.access_token or broker_account.api_secret,  # Use api_secret as access_token if available
+                    account_id=broker_account.account_id,
+                    sandbox=strategy_run.trading_mode == TradingMode.PAPER,  # Use sandbox for paper trading
                 )
             
             # Main loop (simplified - in production, this would be event-driven)
@@ -315,10 +319,20 @@ class TradingEngine:
                 
                 # Get broker adapter
                 broker_account = order.broker_account
+                
+                # Determine sandbox mode from strategy run if available
+                sandbox = False
+                if order.strategy_run_id:
+                    strategy_run = db.query(StrategyRun).filter(StrategyRun.id == order.strategy_run_id).first()
+                    if strategy_run:
+                        sandbox = strategy_run.trading_mode == TradingMode.PAPER
+                
                 broker = create_broker_adapter(
                     broker_name=broker_account.broker_name,
                     api_key=broker_account.api_key,
                     access_token=broker_account.access_token,
+                    account_id=broker_account.account_id,
+                    sandbox=sandbox,
                 )
                 
                 # Create broker order request
@@ -334,7 +348,7 @@ class TradingEngine:
                 )
                 
                 # Place order
-                response = broker.place_order(broker_request)
+                response = await broker.place_order(broker_request)
                 
                 # Update order
                 order.broker_order_id = response.broker_order_id

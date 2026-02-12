@@ -10,8 +10,9 @@ from broker.dhan_adapter import DhanAdapter
 def create_broker_adapter(
     broker_name: str,
     api_key: str,
-    api_secret: Optional[str] = None,
     access_token: Optional[str] = None,
+    account_id: Optional[str] = None,
+    sandbox: bool = False,
 ) -> BrokerInterface:
     """
     Factory function to create broker adapter instances.
@@ -19,22 +20,29 @@ def create_broker_adapter(
     Args:
         broker_name: Name of broker ("dhan", etc.)
         api_key: Broker API key
-        api_secret: Broker API secret (if needed)
-        access_token: Pre-authenticated token (if available)
+        access_token: Pre-authenticated token (required for Dhan)
+        account_id: Broker account ID (required for Dhan)
+        sandbox: Use sandbox environment
         
     Returns:
         BrokerInterface instance
         
     Raises:
-        ValueError: If broker_name is not supported
+        ValueError: If broker_name is not supported or required parameters are missing
     """
     broker_name_lower = broker_name.lower()
     
     if broker_name_lower == "dhan":
-        adapter = DhanAdapter(api_key=api_key, access_token=access_token)
-        if not access_token and api_secret:
-            adapter.authenticate(api_key, api_secret)
-        return adapter
+        if not access_token:
+            raise ValueError("Dhan adapter requires access_token")
+        if not account_id:
+            raise ValueError("Dhan adapter requires account_id")
+        return DhanAdapter(
+            api_key=api_key,
+            access_token=access_token,
+            account_id=account_id,
+            sandbox=sandbox,
+        )
     else:
         raise ValueError(f"Unsupported broker: {broker_name}")
 

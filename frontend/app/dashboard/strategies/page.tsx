@@ -11,6 +11,8 @@ interface Strategy {
   id: number
   name: string
   description: string | null
+  strategy_code: string
+  config_schema: Record<string, any> | null
   is_active: boolean
   created_at: string
 }
@@ -72,10 +74,19 @@ export default function StrategiesPage() {
   const handleCreateStrategy = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      let configSchema = {}
+      try {
+        configSchema = JSON.parse(newStrategy.config)
+      } catch (e) {
+        alert('Invalid JSON in config field')
+        return
+      }
+      
       await apiClient.post('/api/strategies', {
         name: newStrategy.name,
         description: newStrategy.description || null,
-        config: JSON.parse(newStrategy.config),
+        strategy_code: newStrategy.name.toLowerCase().replace(/\s+/g, '_'),
+        config_schema: configSchema,
         is_active: true,
       })
       setShowCreateModal(false)
@@ -155,6 +166,9 @@ export default function StrategiesPage() {
                 </Link>
                 <Link href="/dashboard/risk" className="text-gray-700 hover:text-gray-900 pb-4">
                   Risk Monitor
+                </Link>
+                <Link href="/dashboard/settings" className="text-gray-700 hover:text-gray-900 pb-4">
+                  Settings
                 </Link>
               </div>
             </div>
@@ -290,15 +304,16 @@ export default function StrategiesPage() {
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Config (JSON)
+                    Config Schema (JSON)
                   </label>
                   <textarea
                     value={newStrategy.config}
                     onChange={(e) => setNewStrategy({ ...newStrategy, config: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
                     rows={4}
-                    required
+                    placeholder='{"type": "object", "properties": {...}}'
                   />
+                  <p className="mt-1 text-xs text-gray-500">JSON schema for strategy configuration</p>
                 </div>
                 <div className="flex space-x-3">
                   <button

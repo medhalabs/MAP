@@ -112,6 +112,9 @@ export default function OrdersPage() {
                 <Link href="/dashboard/risk" className="text-gray-700 hover:text-gray-900 pb-4">
                   Risk Monitor
                 </Link>
+                <Link href="/dashboard/settings" className="text-gray-700 hover:text-gray-900 pb-4">
+                  Settings
+                </Link>
               </div>
             </div>
             <div className="flex items-center space-x-4">

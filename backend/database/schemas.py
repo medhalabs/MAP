@@ -85,6 +85,7 @@ class BrokerAccountResponse(BrokerAccountBase):
     user_id: int
     is_active: bool
     created_at: datetime
+    available_balance: Optional[Decimal] = None  # Available balance from broker
 
     class Config:
         from_attributes = True
@@ -123,8 +124,11 @@ class StrategyRunBase(BaseModel):
     trading_mode: TradingMode
     config: Dict[str, Any]
 
-class StrategyRunCreate(StrategyRunBase):
-    pass
+class StrategyRunCreate(BaseModel):
+    """Schema for creating a strategy run (strategy_id comes from URL path)."""
+    broker_account_id: int
+    trading_mode: TradingMode
+    config: Dict[str, Any]
 
 class StrategyRunResponse(StrategyRunBase):
     id: int

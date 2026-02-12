@@ -11,7 +11,8 @@ interface Strategy {
   id: number
   name: string
   description: string | null
-  config: Record<string, any>
+  strategy_code: string
+  config_schema: Record<string, any> | null
   is_active: boolean
   created_at: string
 }
@@ -149,6 +150,9 @@ export default function StrategyDetailPage() {
                 <Link href="/dashboard/risk" className="text-gray-700 hover:text-gray-900 pb-4">
                   Risk Monitor
                 </Link>
+                <Link href="/dashboard/settings" className="text-gray-700 hover:text-gray-900 pb-4">
+                  Settings
+                </Link>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -209,10 +213,11 @@ export default function StrategyDetailPage() {
           </div>
 
           <div className="mt-6 pt-6 border-t border-gray-200">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Configuration</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Configuration Schema</h3>
             <pre className="bg-gray-50 p-4 rounded-lg text-xs overflow-x-auto">
-              {JSON.stringify(strategy.config, null, 2)}
+              {JSON.stringify(strategy.config_schema || {}, null, 2)}
             </pre>
+            <p className="mt-2 text-xs text-gray-500">Strategy Code: {strategy.strategy_code}</p>
           </div>
 
           <div className="mt-4">

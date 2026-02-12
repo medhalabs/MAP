@@ -11,9 +11,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from api.routes import auth, tenants, strategies, orders, trades, positions, websocket, dashboard, broker_accounts, risk
+from api.routes import auth, tenants, strategies, orders, trades, positions, websocket, dashboard, broker_accounts, risk, settings
 from database.session import init_db
 from utils.logger import configure_logging
+# Import strategies module to register all strategies on startup
+import strategies as strategies_module  # noqa: F401
 
 # Configure logging
 configure_logging()
@@ -60,6 +62,7 @@ app.include_router(positions.router, prefix="/api/positions", tags=["positions"]
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
 app.include_router(broker_accounts.router, prefix="/api/broker-accounts", tags=["broker-accounts"])
 app.include_router(risk.router, prefix="/api/risk", tags=["risk"])
+app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 app.include_router(websocket.router, prefix="/api/ws", tags=["websocket"])
 
 
